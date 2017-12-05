@@ -1,12 +1,8 @@
-workspace()
 using Knet
 
-#NOTLAR
-#KODU BASITLESTIR
-#MUMKUNSE TRANSPOSELARDAN KURTAR
-#enum VARIABLE_TYPE {
-#		ENCFF145FVU, ENCFF091JOV, ENCFF102IIL, ENCFF676DBG, ENCFF875CQU, ENCFF152TUF, A, T, G, C, NEUROD2, TSSupstream, CDS, INTRON, UTR5, UTR3;
-#	}
+function sl()
+    println("******************************************************************")
+end
 
 #Reading the Data
 fileprefix = "chr1"
@@ -14,50 +10,47 @@ rows = readdlm(string(fileprefix , "num_rows.txt"))
 num_rows = convert(Int,rows[1])
 columns = readdlm(string(fileprefix , "num_columns.txt"))
 num_columns = convert(Int,columns[1])
-num_samples = num_columns
-num_parameters = num_rows - 1
 
 bitarraydata = falses(num_rows,num_columns)
 chrdata = read!(string(fileprefix , "bitarray.txt")::AbstractString, bitarraydata::Union{Array, BitArray})
 
 inputarraydata = falses(num_rows,num_columns)
-input_data = transpose(read!(string(fileprefix , "inputdataFINAL.txt")::AbstractString, inputarraydata::Union{Array, BitArray}))
+x_trn = transpose(read!(string(fileprefix , "inputdataFINAL.txt")::AbstractString, inputarraydata::Union{Array, BitArray}))
 
 #Defining the fuctions
 predict(w,x) = Knet.sigm(x*w)
 
-function loss(w,x,y,batch_range)
-    batch_size = maximum(batch_range) - minimum(batch_range)
+function loss(w,x,y,batch_range,batch_size)
     x_converted = KnetArray{Float32}(x[batch_range,:])
-    #log. return regular array not Knet Array
     result = -(1. / batch_size) * (transpose(y[batch_range,1:1]) * KnetArray{Float32}(log.(predict(w,x_converted))) + (1 .- transpose(y[batch_range,1:1])) * KnetArray{Float32}(log.(1 .- predict(w,x_converted))))
     return result
 end
 
-#added 0 ----take the derivative with respect to row
-#lossgradient = grad(loss)
-function lossgradient(w,x,y,batch_range)
-    batch_size = maximum(batch_range) - minimum(batch_range)
+#Use lossgradient = grad(loss) to import grad function from the Knet package for complex functions
+function lossgradient(w,x,y,batch_range,batch_size)
     x_converted = KnetArray{Float32}(x[batch_range,:])
     return (1. / batch_size) .* (transpose(x_converted) * (predict(w,x_converted) - y[batch_range,1:1]))
 end
 
-function mini_batch_rangeFinder(x,y,n)
-    size = Int(floor(num_samples / n) + 1)
+#regular mini-batching, please use parser.java to import ranges for oversampled mini-batches
+function mini_batch_rangeFinder(x,y,n,num_samples)
+    #omitting the last chunk
+    size = Int(floor(num_samples / n))
     last_batch_size = num_samples % n
-    array_of_ranges = Array{UnitRange{Int64}}(size-1)
+    array_of_ranges = Array{UnitRange{Int64}}(size)
     starting_point = 1
     ending_point = n
-    for nm = 1:size-1
+    for nm = 1:size
         array_of_ranges[nm] = starting_point:ending_point
         starting_point += n
         ending_point +=n
     end
-    #array_of_ranges[size] = starting_point+1:(ending_point-n+last_batch_size)
     return array_of_ranges
 end
 
 #Calculating the Accuracy
+#Accuracy is calculated by using chromosome_2 since our features are chromosome independent
+
 #Reading the Test Data
 rows_test = readdlm("chr2num_rows.txt")
 num_rows_test = convert(Int,rows_test[1])
@@ -68,19 +61,21 @@ bitarraydata_test = falses(num_rows_test,num_columns_test)
 chrdata_test = read!("chr2bitarray.txt"::AbstractString, bitarraydata_test::Union{Array, BitArray})
 
 bitarraytest_input = falses(num_rows_test,num_columns_test)
-test_input = transpose(read!("test_input.txt"::AbstractString, bitarraytest_input::Union{Array, BitArray}))
+x_test = transpose(read!("test_input.txt"::AbstractString, bitarraytest_input::Union{Array, BitArray}))
 
-y_test = KnetArray{Float32}(reshape((chrdata_test[11,:]),(num_columns_test,1)))
+y_chr2 = KnetArray{Float32}(reshape((chrdata_test[11,:]),(num_columns_test,1)))
 
-#computes the accuracy per batch and total accuracy
-function accuracy(w,test_sample_input,test_sample_result,test_batch_range)
-    threshold = 0.5
+#computes the accuracy per regular batch, for oversampled mini-batches please use the parse.java
+function accuracy(w,test_sample_input,test_sample_result,test_batch_range,test_batch_size)
     predicted_result = 0
     num_right_guess = 0
     num_wrong_guess = 0
+    threshold = 0.5
+
     xtest_converted = KnetArray{Float32}(test_sample_input[test_batch_range,:])
-    result_vector = predict(w,xtest_converted)
-    for num_test in test_batch_range
+    result_vector = Array{Float32}(predict(w,xtest_converted))
+
+    for num_test = 1:test_batch_size
         if (result_vector[num_test,1] > threshold)
             predicted_result = 1
         end
@@ -91,70 +86,77 @@ function accuracy(w,test_sample_input,test_sample_result,test_batch_range)
             num_wrong_guess += 1
         end
     end
-    return float(num_right_guess) / (num_right_guess + num_wrong_guess)
+    accuracy_per_batch = float(num_right_guess) / (num_right_guess + num_wrong_guess)
+    return num_right_guess,num_wrong_guess,accuracy_per_batch
 end
 
 
 #PREPARING THE DATA FOR TRAINING
 #setting y array
-y = KnetArray{Float32}(reshape(chrdata[11,:],(num_columns,1)))
+y_chr1 = KnetArray{Float32}(reshape(chrdata[11,:],(num_columns,1)))
 
 #setting up the weight vectors
 rng = MersenneTwister(1234)
 w = KnetArray{Float32}(rand!(rng, zeros(num_rows,1)))
 
-#SILINECEK
+#setting up a dummy weight vectors
+rng_dummy = MersenneTwister(5678)
+w_dummy = KnetArray{Float32}(rand!(rng_dummy, zeros(num_rows,1)))
+
+#Checking inital values of weight vector
+println("inital values of weight vector")
 for i=1:16
     println(w[i,1])
 end
+sl()
+
+#Checking values of dummy weight vector
+println("dummy weight vector")
+for i=1:16
+    println(w_dummy[i,1])
+end
+sl()
 
 #Training the sample
-#rowu toplamadim
 numepochs = 40
 alpha = 0.1
-minibatch_list = mini_batch_rangeFinder(input_data,y,256)
-#[3000000:3001000
+num_samples_per_batch = 256
+minibatch_list = mini_batch_rangeFinder(x_trn,y_chr1,num_samples_per_batch,num_columns)
+#stochastic gradient descent
 Optimization_Algorithm = Sgd(lr=alpha)
 for epoch=1:numepochs
     for range_instance in minibatch_list
-        g = lossgradient(w, input_data, y,range_instance)
-        #stochastic gradient descent
+        g = lossgradient(w, x_trn, y_chr1,range_instance,num_samples_per_batch)
         update!(w, g, Optimization_Algorithm)
-        #update!(w, g, Adam(lr=alpha))
-        #w = w - lr * g
-
-        #for i in 1:length(w)
-        #        w[i] = w[i] - lr * g[i]
-        #end
     end
-    if epoch == 1
-        println("1inci epoch bitti")
-    end
-    if epoch == 2
-        println("2inci epoch bitti")
-    end
-    if epoch == 5
-        println("5inci epoch bitti")
-    end
-    if epoch == 10
-        println("10inci epoch bitti")
-    end
-    if epoch == 15
-        println("15inci epoch bitti")
-    end
-    if epoch == 20
-        println("20inci epoch bitti")
+    if (epoch % 3) == 1
+        println("epoch ",epoch," is over")
     end
 end
 
-w
-
-#WORK IN PROGRESS
-for test_range_instance in minibatch_list
-    accuracy(w,test_input,y_test,test_range_instance)
-end
-
-#SILINECEK
+#Cheking the final weight values
+println("final values of weight vector")
 for i=1:16
     println(w[i,1])
 end
+sl()
+
+#Total Accuracy
+dummy_total_right = 0
+dummy_total_wrong = 0
+regular_total_right = 0
+regular_total_wrong = 0
+testbatch_list = mini_batch_rangeFinder(x_test,y_chr2,num_samples_per_batch,num_columns_test)
+for test_range_instance in testbatch_list
+    dummy_per_batch_right,dummy_per_batch_wrong = accuracy(w_dummy,x_test,y_chr2,test_range_instance,num_samples_per_batch)
+    regular_per_batch_right,regular_per_batch_wrong = accuracy(w,x_test,y_chr2,test_range_instance,num_samples_per_batch)
+    dummy_total_right += dummy_per_batch_right
+    dummy_total_wrong += dummy_per_batch_wrong
+    regular_total_right += regular_per_batch_right
+    regular_total_wrong += regular_per_batch_wrong
+end
+regular_total_accuracy = float(regular_total_right) / (regular_total_right + regular_total_wrong)
+dummy_total_accuracy = float(dummy_total_right) / (dummy_total_right + dummy_total_wrong)
+
+println("Regular accuracy is:",regular_total_accuracy)
+println("Dummy accuracy is:",dummy_total_accuracy)
