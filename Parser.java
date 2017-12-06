@@ -56,7 +56,6 @@ public class Parser {
 		int indexOfZero = -1;
 		
 
-		// bu indexler julia da bir eklenerek kullanilmali
 		int[][] indexes = new int[numberOfBatchSize][MINI_BATCH_SIZE];
 		
 		for (int i = 0; i < numberOfBatchSize; i++) {
@@ -316,7 +315,6 @@ public class Parser {
 					int end = Integer.parseInt(parts[2]);
 					double dValue = Double.parseDouble(parts[3]);
 
-					// TODO histogram data analizi yapilip ona gore bu karar verilecek
 					boolean value = (dValue != HISTONE_THRESHOLD);
 
 					for (int j = start; j < end; j++) {
