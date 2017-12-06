@@ -11,11 +11,20 @@ num_rows = convert(Int,rows[1])
 columns = readdlm(string(fileprefix , "num_columns.txt"))
 num_columns = convert(Int,columns[1])
 
-bitarraydata = falses(num_rows,num_columns)
-chrdata = read!(string(fileprefix , "bitarray.txt")::AbstractString, bitarraydata::Union{Array, BitArray})
+x_trn = falses(num_rows,num_columns)
+x_trn = read!(string(fileprefix , "bitarray.txt")::AbstractString, x_trn::Union{Array, BitArray})
 
-inputarraydata = falses(num_rows,num_columns)
-x_trn = transpose(read!(string(fileprefix , "inputdataFINAL.txt")::AbstractString, inputarraydata::Union{Array, BitArray}))
+#PREPARING THE DATA FOR TRAINING
+#setting y array
+y_chr = KnetArray{Float32}(reshape(x_trn[1,:],(num_columns,1)))
+
+#YORUM YAZILACAK
+x_trn[1,:] = fill!(x_trn[1,:], true)
+
+
+trn_fileName = string("training_", fileprefix, "_indexes.txt")
+
+
 
 #Defining the fuctions
 predict(w,x) = Knet.sigm(x*w)
@@ -91,9 +100,7 @@ function accuracy(test_sample_result,result_vector)
 end
 
 
-#PREPARING THE DATA FOR TRAINING
-#setting y array
-y_chr1 = KnetArray{Float32}(reshape(chrdata[11,:],(num_columns,1)))
+
 
 #setting up the weight vectors
 rng = MersenneTwister(1234)

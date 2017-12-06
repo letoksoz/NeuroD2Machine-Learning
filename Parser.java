@@ -12,14 +12,14 @@ import java.util.List;
 
 public class Parser {
 	enum VARIABLE_TYPE {
-		ENCFF145FVU, ENCFF091JOV, ENCFF102IIL, ENCFF676DBG, ENCFF875CQU, ENCFF152TUF, A, T, G, C, TSSupstream, CDS, INTRON, UTR5, UTR3, NEUROD2;
+		NEUROD2, ENCFF145FVU, ENCFF091JOV, ENCFF102IIL, ENCFF676DBG, ENCFF875CQU, ENCFF152TUF, A, T, G, C, TSSupstream, CDS, INTRON, UTR5, UTR3;
 	}
 
 	public static void main(String[] args) throws IOException {
 
-		String[] chromType = { "chr1","chr2"};
+		String[] chromType = { "chr1"/*,"chr2"*/};
 		for (int i = 0; i < chromType.length; i++) {
-			int fileSize = findSize(chromType[i]);
+			int fileSize = findSize(chromType[i] + ".fa");
 			System.out.println("Matrix size: " + fileSize);
 
 			boolean[][] chr = new boolean[VARIABLE_TYPE.values().length][fileSize];
@@ -49,13 +49,23 @@ public class Parser {
 	}
 
 	private static void createSperatedIndex(boolean[] bs, String chromType) throws IOException {
+		int numberOfZero = 0;
+		for (int i = 0; i < bs.length; i++) {
+			if (bs[i] == false) {
+				numberOfZero++;
+			}
+		}
+		int numberOfOne = bs.length - numberOfZero;
+		int max = Math.max(numberOfOne, numberOfOne);
+		
 		final int MINI_BATCH_SIZE = 256;
-		int numberOfBatchSize = bs.length / MINI_BATCH_SIZE + 1;
+		int numberOfBatchSize = max / (MINI_BATCH_SIZE / 2) + 1;
 		
 		int indexOfOne = -1;
 		int indexOfZero = -1;
 		
 
+		// bu indexler julia da bir eklenerek kullanilmali
 		int[][] indexes = new int[numberOfBatchSize][MINI_BATCH_SIZE];
 		
 		for (int i = 0; i < numberOfBatchSize; i++) {
@@ -236,9 +246,7 @@ public class Parser {
 				// skip the first line
 				continue;
 			}
-			for (int i = 0; i < line.length(); i++) {
-				characterCounter += line.length();
-			}
+			characterCounter += line.length();
 		}
 		br.close();
 		return characterCounter;
@@ -315,6 +323,7 @@ public class Parser {
 					int end = Integer.parseInt(parts[2]);
 					double dValue = Double.parseDouble(parts[3]);
 
+					// TODO histogram data analizi yapilip ona gore bu karar verilecek
 					boolean value = (dValue != HISTONE_THRESHOLD);
 
 					for (int j = start; j < end; j++) {
@@ -354,7 +363,7 @@ public class Parser {
 	}
 	
 	private static void writeIndexesToFile(int[][] indexes, String fileName) throws IOException {
-		final double TRAINING_RATIO = 0.9; 
+		final double TRAINING_RATIO = 0.90; 
 		
 		int trainingSize = (int)(indexes.length * TRAINING_RATIO);
 		
