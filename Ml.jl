@@ -11,20 +11,17 @@ num_rows = convert(Int,rows[1])
 columns = readdlm(string(fileprefix , "num_columns.txt"))
 num_columns = convert(Int,columns[1])
 
-x_trn = falses(num_rows,num_columns)
-x_trn = read!(string(fileprefix , "bitarray.txt")::AbstractString, x_trn::Union{Array, BitArray})
+bitarraydata = falses(num_rows,num_columns)
+chrdata = read!(string(fileprefix , "bitarray.txt")::AbstractString, bitarraydata::Union{Array, BitArray})
 
-#PREPARING THE DATA FOR TRAINING
 #setting y array
-y_chr = KnetArray{Float32}(reshape(x_trn[1,:],(num_columns,1)))
+y_chr1 = KnetArray{Float32}(reshape(chrdata[1,:],(num_columns,1)))
 
-#YORUM YAZILACAK
-x_trn[1,:] = fill!(x_trn[1,:], true)
+#Switch the result row with row of 1`s for the bias term in weight
+chrdata[1,:] = fill!(chrdata[1,:], true)
 
-
-trn_fileName = string("training_", fileprefix, "_indexes.txt")
-
-
+#now columns represent parameters and rows represent samples
+x_trn = transpose(chrdata)
 
 #Defining the fuctions
 predict(w,x) = Knet.sigm(x*w)
@@ -52,35 +49,25 @@ function mini_batch_rangeFinder(x,y,n,num_samples)
     for nm = 1:size
         array_of_ranges[nm] = starting_point:ending_point
         starting_point += n
-        ending_point +=n
+        ending_point += n
     end
     return array_of_ranges
 end
 
 #Calculating the Accuracy
-#Accuracy is calculated by using chromosome_2 since our features are chromosome independent
 
-#Reading the Test Data
-rows_test = readdlm("chr2num_rows.txt")
-num_rows_test = convert(Int,rows_test[1])
-columns_test = readdlm("chr2num_columns.txt")
-num_columns_test = convert(Int,columns_test[1])
+#Creating and Reading the (Balanced)Test Data
+test_fileName = string("test_", fileprefix, "_indexes.txt")
+test_index_list = readdlm(test_fileName)
 
-bitarraydata_test = falses(num_rows_test,num_columns_test)
-chrdata_test = read!("chr2bitarray.txt"::AbstractString, bitarraydata_test::Union{Array, BitArray})
+#Index starts at 1 in Julia
+test_index_list = Int.(test_index_list .+ 1)
 
-bitarraytest_input = falses(num_rows_test,num_columns_test)
-x_test = transpose(read!("test_input.txt"::AbstractString, bitarraytest_input::Union{Array, BitArray}))
-
-y_chr2 = KnetArray{Float32}(reshape((chrdata_test[11,:]),(num_columns_test,1)))
-
-#computes the accuracy per regular batch, for oversampled mini-batches please use the parse.java
+#computes the accuracy
 function accuracy(test_sample_result,result_vector)
     num_right_guess = 0
     num_wrong_guess = 0
     threshold = 0.5
-
-    # sifirlarin ve birlerin kactanesini dogru buluyor
 
     for num_test = 1:length(result_vector)
         if (result_vector[num_test,1] > threshold)
@@ -100,7 +87,7 @@ function accuracy(test_sample_result,result_vector)
 end
 
 
-
+#PREPARING THE DATA FOR TRAINING
 
 #setting up the weight vectors
 rng = MersenneTwister(1234)
@@ -128,18 +115,41 @@ sl()
 numepochs = 40
 alpha = 0.1
 num_samples_per_batch = 256
+
+#For regular batching
 minibatch_list = mini_batch_rangeFinder(x_trn,y_chr1,num_samples_per_batch,num_columns)
+
+#For balanced batching
+trn_fileName = string("training_", fileprefix, "_indexes.txt")
+trn_index_list = readdlm(trn_fileName)
+
+#Index starts at 1 in Julia
+trn_index_list = Int.(trn_index_list .+ 1)
+
 #stochastic gradient descent
 Optimization_Algorithm = Sgd(lr=alpha)
 for epoch=1:numepochs
+
+    #=Regular Batching
     for range_instance in minibatch_list
         g = lossgradient(w, x_trn, y_chr1,range_instance,num_samples_per_batch)
         update!(w, g, Optimization_Algorithm)
     end
+    =#
+
+    #Balanced Batching
+    for nm=1:length(trn_index_list[1,:])
+        range_instance = trn_index_list[nm,:]
+        g = lossgradient(w, x_trn, y_chr1,range_instance,num_samples_per_batch)
+        update!(w, g, Optimization_Algorithm)
+    end
+
     if (epoch % 3) == 1
         println("epoch ",epoch," is over")
     end
 end
+
+g = lossgradient(w, x_trn, y_chr1,,256)
 
 #Cheking the final weight values
 println("final values of weight vector")

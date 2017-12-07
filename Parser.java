@@ -41,9 +41,9 @@ public class Parser {
 
 			writeDataToFile(chr, chromType[i] + ".data");
 			System.out.println("writeToFile completed...");
-			
+
 			createSperatedIndex(chr[VARIABLE_TYPE.NEUROD2.ordinal()], chromType[i]);
-			
+
 		}
 
 	}
@@ -57,17 +57,15 @@ public class Parser {
 		}
 		int numberOfOne = bs.length - numberOfZero;
 		int max = Math.max(numberOfOne, numberOfOne);
-		
+
 		final int MINI_BATCH_SIZE = 256;
 		int numberOfBatchSize = max / (MINI_BATCH_SIZE / 2) + 1;
-		
+
 		int indexOfOne = -1;
 		int indexOfZero = -1;
-		
 
-		// bu indexler julia da bir eklenerek kullanilmali
 		int[][] indexes = new int[numberOfBatchSize][MINI_BATCH_SIZE];
-		
+
 		for (int i = 0; i < numberOfBatchSize; i++) {
 			boolean isZero = false;
 			for (int j = 0; j < MINI_BATCH_SIZE; j++) {
@@ -91,12 +89,12 @@ public class Parser {
 					}
 				}
 				isZero = !isZero;
-				
+
 			}
-					
+
 		}
 		writeIndexesToFile(indexes, chromType + "_indexes.txt");
-		
+
 	}
 
 	private static void processEnsRegionUniq(boolean[][] chr, String chrType) throws IOException {
@@ -111,9 +109,9 @@ public class Parser {
 			if (parts[0].equals(chrType)) {
 				int startIndex = Integer.parseInt(parts[1]);
 				int endIndex = Integer.parseInt(parts[2]);
-				
+
 				VARIABLE_TYPE type = VARIABLE_TYPE.valueOf(parts[5].toUpperCase());
-				
+
 				if (type == null) {
 					throw new IllegalArgumentException(parts[5] + " invalid variable type");
 				}
@@ -127,7 +125,7 @@ public class Parser {
 	}
 
 	private static void processEnsGeneUniq(boolean[][] chr, String chrType) throws IOException {
-		
+
 		final int TSS_UPSTREAM_RANGE = 1000;
 
 		final String ENS_GENE_PATH = "/home/letoksoz/Desktop/JuliaWorkSpace/data/ensGene_uniq.txt";
@@ -146,7 +144,7 @@ public class Parser {
 					endIndex = startIndex;
 					startIndex = startIndex - TSS_UPSTREAM_RANGE;
 				} else if (parts[5].equals("-")) {
-					startIndex = endIndex; 
+					startIndex = endIndex;
 					endIndex = endIndex + TSS_UPSTREAM_RANGE;
 				} else {
 					throw new IllegalArgumentException(parts[5] + " is not expected.");
@@ -198,24 +196,24 @@ public class Parser {
 		List<Data> MFileData = listOfList.get(0);
 		List<Data> R1FileData = listOfList.get(1);
 		List<Data> R2FileData = listOfList.get(2);
-		
-		int maxIndex = Math.max(Math.max(MFileData.get(MFileData.size() - 1).end, R1FileData.get(R1FileData.size() - 1).end),  
+
+		int maxIndex = Math.max(Math.max(MFileData.get(MFileData.size() - 1).end, R1FileData.get(R1FileData.size() - 1).end),
 				R2FileData.get(R2FileData.size() - 1).end);
 		System.out.println("Max index of NEUROD2 file: " + maxIndex + " for "+ chrType);
-		
+
 		boolean[] MFileBoolArray = convertToBoolArray(MFileData, maxIndex);
 		boolean[] R1FileBoolArray = convertToBoolArray(R1FileData, maxIndex);
 		boolean[] R2FileBoolArray = convertToBoolArray(R1FileData, maxIndex);
-		
+
 		boolean[] intersectionBoolArray = findIntersectionList(MFileBoolArray, R1FileBoolArray, R2FileBoolArray, maxIndex);
-		
+
 		for (int i = 0; i < maxIndex; i++) {
 			chr[VARIABLE_TYPE.NEUROD2.ordinal()][i] = intersectionBoolArray[i];
 		}
 	}
-	
+
 	private static boolean[]  findIntersectionList(boolean[]  MFileBoolArray, boolean[] R1FileBoolArray, boolean[] R2FileBoolArray, int maxIndex) {
-		
+
 		boolean[] listArray = new boolean[maxIndex];
 		for (int i = 0; i < maxIndex; i++) {
 			listArray[i] = MFileBoolArray[i] && R1FileBoolArray[i] & R2FileBoolArray[i];
@@ -239,8 +237,8 @@ public class Parser {
 		BufferedReader br = new BufferedReader(new FileReader(CHROM_FA_DATA_PATH + fileName));
 		String line;
 		int characterCounter = 0;
-		
-		
+
+
 		while (((line = br.readLine()) != null)) {
 			if (line.startsWith(">")) {
 				// skip the first line
@@ -257,7 +255,7 @@ public class Parser {
 		BufferedReader br = new BufferedReader(new FileReader(CHROM_FA_DATA_PATH + fileName));
 		String line;
 		int characterCounter = 0;
-		
+
 		while (((line = br.readLine()) != null)) {
 			if (line.startsWith(">")) {
 				// skip the first line
@@ -323,7 +321,6 @@ public class Parser {
 					int end = Integer.parseInt(parts[2]);
 					double dValue = Double.parseDouble(parts[3]);
 
-					// TODO histogram data analizi yapilip ona gore bu karar verilecek
 					boolean value = (dValue != HISTONE_THRESHOLD);
 
 					for (int j = start; j < end; j++) {
@@ -348,7 +345,7 @@ public class Parser {
 		int counter = 0;
 		BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
 		for (int i = 0; i < chr.length; i++) {
-			for (int j = 0; j <= chr[0].length; j++) {
+			for (int j = 0; j < chr[0].length; j++) {
 				if (chr[i][j]) {
 					writer.append('1');
 					counter++;
@@ -361,29 +358,29 @@ public class Parser {
 		writer.close();
 		System.out.println("total number of trues: " + counter);
 	}
-	
+
 	private static void writeIndexesToFile(int[][] indexes, String fileName) throws IOException {
-		final double TRAINING_RATIO = 0.90; 
-		
+		final double TRAINING_RATIO = 0.90;
+
 		int trainingSize = (int)(indexes.length * TRAINING_RATIO);
-		
-		
+
+
 		BufferedWriter writer = new BufferedWriter(new FileWriter("training_" + fileName));
-		
+
 		for (int i = 0; i < trainingSize; i++) {
 			for (int j = 0; j < indexes[i].length; j++) {
-				writer.append(indexes[i][j] + " "); // 23 56 24 58 25 59 
+				writer.append(indexes[i][j] + " ");
 			}
 			writer.append("\n");
 		}
 		writer.close();
 
-		
+
 		writer = new BufferedWriter(new FileWriter("test_" + fileName));
-		
+
 		for (int i = trainingSize; i < indexes.length; i++) {
 			for (int j = 0; j < indexes[i].length; j++) {
-				writer.append(indexes[i][j] + " "); 
+				writer.append(indexes[i][j] + " ");
 			}
 			writer.append("\n");
 		}
