@@ -15,7 +15,7 @@ bitarraydata = falses(num_rows,num_columns)
 chrdata = read!(string(fileprefix , "bitarray.txt")::AbstractString, bitarraydata::Union{Array, BitArray})
 
 #setting y array
-y_chr1 = KnetArray{Float32}(reshape(chrdata[1,:],(num_columns,1)))
+y_chr1 = reshape(chrdata[1,:],(num_columns,1))
 
 #Switch the result row with row of 1`s for the bias term in weight
 chrdata[1,:] = fill!(chrdata[1,:], true)
@@ -28,14 +28,16 @@ predict(w,x) = Knet.sigm(x*w)
 
 function loss(w,x,y,batch_range,batch_size)
     x_converted = KnetArray{Float32}(x[batch_range,:])
-    result = -(1. / batch_size) * (transpose(y[batch_range,1:1]) * KnetArray{Float32}(log.(predict(w,x_converted))) + (1 .- transpose(y[batch_range,1:1])) * KnetArray{Float32}(log.(1 .- predict(w,x_converted))))
+    y_converted = KnetArray{Float32}(y[batch_range,1:1])
+    result = -(1. / batch_size) * (transpose(y_converted) * KnetArray{Float32}(log.(predict(w,x_converted))) + (1 .- transpose(y_converted)) * KnetArray{Float32}(log.(1 .- predict(w,x_converted))))
     return result
 end
 
 #Use lossgradient = grad(loss) to import grad function from the Knet package for complex functions
 function lossgradient(w,x,y,batch_range,batch_size)
     x_converted = KnetArray{Float32}(x[batch_range,:])
-    return (1. / batch_size) .* (transpose(x_converted) * (predict(w,x_converted) - y[batch_range,1:1]))
+    y_converted = KnetArray{Float32}(y[batch_range,1:1])
+    return (1. / batch_size) .* (transpose(x_converted) * (predict(w,x_converted) - y_converted))
 end
 
 #regular mini-batching, please use parser.java to import ranges for oversampled mini-batches
@@ -63,7 +65,7 @@ test_index_list = readdlm(test_fileName)
 #Index starts at 1 in Julia
 test_index_list = Int.(test_index_list .+ 1)
 
-#computes the accuracy
+#computes the accuracy per batch
 function accuracy(test_sample_result,result_vector)
     num_right_guess = 0
     num_wrong_guess = 0
@@ -149,8 +151,6 @@ for epoch=1:numepochs
     end
 end
 
-g = lossgradient(w, x_trn, y_chr1,,256)
-
 #Cheking the final weight values
 println("final values of weight vector")
 for i=1:16
@@ -165,24 +165,22 @@ dummy_total_wrong = 0
 regular_total_right = 0
 regular_total_wrong = 0
 
-testbatch_list = mini_batch_rangeFinder(x_test,y_chr2,num_samples_per_batch,num_columns_test)
+for nm_test=1:length(test_index_list[1,:])
+    test_range_instance = test_index_list[nm_test,:]
+    y_test = y_chr1[test_range_instance,1:1]
 
-
-for test_range_instance in testbatch_list
-
-    xtest_converted = KnetArray{Float32}(x_test[test_range_instance,:])
+    xtest_converted = KnetArray{Float32}(x_trn[test_range_instance,:])
     result_vector = Array{Float32}(predict(w_dummy,xtest_converted))
 
-    dummy_per_batch_right,dummy_per_batch_wrong = accuracy(y_chr2,result_vector) #(w_dummy,x_test,y_chr2,test_range_instance,num_samples_per_batch)
+    dummy_per_batch_right,dummy_per_batch_wrong = accuracy(y_test,result_vector)
     dummy_total_right += dummy_per_batch_right
     dummy_total_wrong += dummy_per_batch_wrong
 
 
-
-    xtest_converted = KnetArray{Float32}(x_test[test_range_instance,:])
+    xtest_converted = KnetArray{Float32}(x_trn[test_range_instance,:])
     result_vector = Array{Float32}(predict(w,xtest_converted))
 
-    regular_per_batch_right,regular_per_batch_wrong = accuracy(y_chr2,result_vector) #(w,x_test,y_chr2,test_range_instance,num_samples_per_batch)
+    regular_per_batch_right,regular_per_batch_wrong = accuracy(y_test,result_vector)
     regular_total_right += regular_per_batch_right
     regular_total_wrong += regular_per_batch_wrong
 end
