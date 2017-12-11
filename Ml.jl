@@ -58,6 +58,29 @@ end
 
 #Calculating the Accuracy
 
+######Loading Test Data - Using chr-2 as a test data
+fileprefix_test = "chr2"
+rows_test = readdlm(string(fileprefix_test , "num_rows.txt"))
+num_rows_test = convert(Int,rows_test[1])
+columns_test = readdlm(string(fileprefix_test , "num_columns.txt"))
+num_columns_test = convert(Int,columns_test[1])
+
+bitarraydata_test = falses(num_rows_test,num_columns_test)
+chrdata_test = read!(string(fileprefix_test , "bitarray.txt")::AbstractString, bitarraydata_test::Union{Array, BitArray})
+
+#setting y array
+y_chr2 = reshape(chrdata_test[1,:],(num_columns_test,1))
+
+#Switch the result row with row of 1`s for the bias term in weight
+chrdata_test[1,:] = fill!(chrdata_test[1,:], true)
+
+#now columns represent parameters and rows represent samples
+x_trn_test = transpose(chrdata_test)
+
+test_list = mini_batch_rangeFinder(x_trn_test,y_chr2,256,num_columns_test)
+
+############
+
 #Creating and Reading the (Balanced)Test Data
 test_fileName = string("test_", fileprefix, "_indexes.txt")
 test_index_list = readdlm(test_fileName)
@@ -66,6 +89,11 @@ test_index_list = readdlm(test_fileName)
 test_index_list = Int.(test_index_list .+ 1)
 
 #computes the accuracy per batch
+TN = 0
+TP = 0
+FN = 0
+FP = 0
+
 function accuracy(test_sample_result,result_vector)
     num_right_guess = 0
     num_wrong_guess = 0
@@ -74,8 +102,20 @@ function accuracy(test_sample_result,result_vector)
     for num_test = 1:length(result_vector)
         if (result_vector[num_test,1] > threshold)
             predicted_result = 1
+
+            if (test_sample_result[num_test,1] == predicted_result)
+                global TP += 1
+            else
+                global FP += 1
+            end
         else
             predicted_result = 0
+
+            if (test_sample_result[num_test,1] == predicted_result)
+                global TN += 1
+            else
+                global FN += 1
+            end
         end
 
         if (test_sample_result[num_test,1] == predicted_result)
@@ -165,10 +205,12 @@ dummy_total_wrong = 0
 regular_total_right = 0
 regular_total_wrong = 0
 
+#=
 for nm_test=1:length(test_index_list[1,:])
     test_range_instance = test_index_list[nm_test,:]
     y_test = y_chr1[test_range_instance,1:1]
 
+    #For the Dummy Weight
     xtest_converted = KnetArray{Float32}(x_trn[test_range_instance,:])
     result_vector = Array{Float32}(predict(w_dummy,xtest_converted))
 
@@ -176,7 +218,7 @@ for nm_test=1:length(test_index_list[1,:])
     dummy_total_right += dummy_per_batch_right
     dummy_total_wrong += dummy_per_batch_wrong
 
-
+    #For the Regular Weight
     xtest_converted = KnetArray{Float32}(x_trn[test_range_instance,:])
     result_vector = Array{Float32}(predict(w,xtest_converted))
 
@@ -184,8 +226,40 @@ for nm_test=1:length(test_index_list[1,:])
     regular_total_right += regular_per_batch_right
     regular_total_wrong += regular_per_batch_wrong
 end
+=#
+
+for test_range_instance in test_list
+    y_test = y_chr1[test_range_instance,1:1]
+
+    #=For the Dummy Weight
+    xtest_converted = KnetArray{Float32}(x_trn[test_range_instance,:])
+    result_vector = Array{Float32}(predict(w_dummy,xtest_converted))
+
+    dummy_per_batch_right,dummy_per_batch_wrong = accuracy(y_test,result_vector)
+    dummy_total_right += dummy_per_batch_right
+    dummy_total_wrong += dummy_per_batch_wrong
+    =#
+    #For the Regular Weight
+    xtest_converted = KnetArray{Float32}(x_trn[test_range_instance,:])
+    result_vector = Array{Float32}(predict(w,xtest_converted))
+
+    regular_per_batch_right,regular_per_batch_wrong = accuracy(y_test,result_vector)
+    regular_total_right += regular_per_batch_right
+    regular_total_wrong += regular_per_batch_wrong
+end
+
 regular_total_accuracy = float(regular_total_right) / (regular_total_right + regular_total_wrong)
 dummy_total_accuracy = float(dummy_total_right) / (dummy_total_right + dummy_total_wrong)
 
 println("Regular accuracy is:",regular_total_accuracy)
 println("Dummy accuracy is:",dummy_total_accuracy)
+println(TP+FP)
+println(TP)
+println(FP)
+sl()
+
+recall = TP / (TP + FN)
+precision = TP / (TP + FP)
+
+println("Recall is:",recall)
+println("Precision is:",precision)
