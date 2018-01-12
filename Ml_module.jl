@@ -14,7 +14,6 @@ function loss(w,x,y,batch_range,batch_size)
     return result
 end
 
-#Use lossgradient = grad(loss) to import grad function from the Knet package for complex functions
 function lossgradient(w,x,y,batch_range,batch_size)
     x_converted = KnetArray{Float32}(x[batch_range,:])
     y_converted = KnetArray{Float32}(y[batch_range,1:1])

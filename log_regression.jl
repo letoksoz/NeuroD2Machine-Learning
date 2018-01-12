@@ -57,13 +57,6 @@ function execute_log_regression(fileprefix)
     #Sgd(lr=alpha)
     for epoch=1:numepochs
 
-        #=Regular Batching
-        for range_instance in minibatch_list
-            g = lossgradient(w, x_trn, y_chr1,range_instance,num_samples_per_batch)
-            update!(w, g, Optimization_Algorithm)
-        end
-        =#
-
         #Balanced Batching
         for nm=1:length(trn_index_list[:,1])
             range_instance = trn_index_list[nm,:]
