@@ -3,4 +3,4 @@ using Knet
 include("log_regression.jl")
 
 fileprefix = "chr1"
-excute_log_regression(fileprefix)
+execute_log_regression(fileprefix)

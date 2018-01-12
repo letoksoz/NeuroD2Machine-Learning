@@ -87,9 +87,9 @@ function printResultStatistics(precision_recall_dummy,precision_recall)
     sl()
     println("Dummy accuracy is:",calculate_accurancy(precision_recall_dummy))
     println("Regular accuracy is:",calculate_accurancy(precision_recall))
-    println("Total predicted positve:",precision_recall.TP+precision_recall.FP)
-    println("True positve:",precision_recall.TP)
-    println("False positve:",precision_recall.FP)
+    println("Total predicted positive:",precision_recall.TP+precision_recall.FP)
+    println("True positive:",precision_recall.TP)
+    println("False positive:",precision_recall.FP)
 
 
     println("Recall dummy is:",calculate_recall(precision_recall_dummy))

@@ -4,7 +4,7 @@ include("Ml_module.jl")
 include("accuracy_module.jl")
 
 
-function excute_log_regression(fileprefix)
+function execute_log_regression(fileprefix)
     #Reading the Data
 
     rows = readdlm(string(fileprefix , "num_rows.txt"))
@@ -39,7 +39,7 @@ function excute_log_regression(fileprefix)
 
     #Training the sample
     numepochs = 40
-    alpha = 0.1
+    alpha = 0.001
     num_samples_per_batch = 256
 
     #For regular batching
@@ -53,7 +53,8 @@ function excute_log_regression(fileprefix)
     trn_index_list = Int.(trn_index_list .+ 1)
 
     #stochastic gradient descent
-    Optimization_Algorithm = Sgd(lr=alpha)
+    Optimization_Algorithm = Adam(lr = alpha)
+    #Sgd(lr=alpha)
     for epoch=1:numepochs
 
         #=Regular Batching
@@ -64,7 +65,7 @@ function excute_log_regression(fileprefix)
         =#
 
         #Balanced Batching
-        for nm=1:length(trn_index_list[1,:])
+        for nm=1:length(trn_index_list[:,1])
             range_instance = trn_index_list[nm,:]
             g = lossgradient(w, x_trn, y_chr1,range_instance,num_samples_per_batch)
             update!(w, g, Optimization_Algorithm)
@@ -84,7 +85,7 @@ function excute_log_regression(fileprefix)
     precision_recall_dummy = Precision_Recall(0,0,0,0)
     precision_recall = Precision_Recall(0,0,0,0)
 
-    for nm_test=1:length(test_balanced_index_list[1,:])
+    for nm_test=1:length(test_balanced_index_list[:,1])
         test_range_instance = test_balanced_index_list[nm_test,:]
 
         batch_accuracy(y_chr1,x_trn,test_range_instance,w_dummy,w,precision_recall_dummy,precision_recall)
