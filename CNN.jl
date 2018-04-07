@@ -89,23 +89,30 @@ end
 
 #=
 The trained architecture has the form of:
-conv -> conv -> conv -> (bn -> relu) -> Avg.pool -> fc -> (bn  -> relu) -> output
+conv -> conv -> conv ->  Avg.pool -> fc -> output
 =#
 
 function predict_CNN(w,x)
     # conv. layer
     println("predict cagrildi")
     c1 = relu.(conv4(w[1], x; padding=(2,1), stride=(2,1)) .+ w[2])
+    println("c1")
     println(size(c1))
     # conv. layer
     c2 = relu.(conv4(w[3], c1; padding=(2,1), stride=(2,1)) .+ w[4])
+    println("c2")
     println(size(c2))
     # conv. layer
     c3 = relu.(conv4(w[5], c2; padding=(2,1), stride=(2,1)) .+ w[6])
+    println("c3")
     println(size(c3))
     #global avg.pool layer
     c4 = pool(c3,window=26,mode=1)
     println("c4")
+    println(size(c4))
+    #reshape c4
+    c4 = reshape(c4,32,2)
+    println("reshapedc4")
     println(size(c4))
     #fc layer
     c5 = relu.(w[7] * mat(c4) .+ w[8])
@@ -114,7 +121,7 @@ function predict_CNN(w,x)
     c6 = w[9] * mat(c5) .+ w[10]
     println("c6")
     println(size(c6))
-    return c6
+    return transpose(c6)
 end
 
 loss_CNN(w,x,y_actual) = nll(predict_CNN(w,x),y_actual)
@@ -131,16 +138,18 @@ end
 
 function train(w, dtrn; lr=.01, epochs=10)
     optimization = Optimization_Algorithm_Initializer(lr,length(w))
-
+    println(size(optimization))
     #print_weight("Initial Values Are:", w)
     println("Starting the epoch 1:")
     for epoch=1:epochs
         for (x,y) in dtrn
             x = transpose(x)
             x = reshape(x, 201,1,15,1)
-            println(length(y))
-            println(size(y))
+            println("lengthy:",length(y))
+            println("sizey:",size(y))
+            println("sizex:",size(x))
             g = lossgradient_CNN(w, x, y)
+            println("sizeg:",size(g))
             update!(w,g,optimization)
         end
 
@@ -154,11 +163,11 @@ function train(w, dtrn; lr=.01, epochs=10)
 end
 
 function initialize_weight_CNN()
-    weight = [ 0.1*randn(5,1,15,64),  zeros(1,1,64,1),
-               0.1*randn(5,1,64,64), zeros(1,1,64,1),
-               0.1*randn(5,1,64,64),  zeros(1,1,64,1),
-               0.1*randn(64,64),  zeros(64,1),
-               0.1*randn(201,64),  zeros(201,1)]
+    weight = [ xavier(Float32,5,1,15,64),  zeros(Float32,1,1,64,1),
+               xavier(Float32,5,1,64,64), zeros(Float32,1,1,64,1),
+               xavier(Float32,5,1,64,64),  zeros(Float32,1,1,64,1),
+               xavier(Float32,80,32),  zeros(Float32,80,1),
+               xavier(Float32,201,80),  zeros(Float32,201,1)]
     return map(KnetArray{Float32}, weight)
 end
 
@@ -180,9 +189,9 @@ end
 fileprefix = "chr1"
 batchsize = 201
 
-window_size_list = [1,3,5,7,9,11,13,15,17,19,25,31,39,45,51,55,61,67]
-trn_accuracy_values = Any[]
-tst_accuracy_values = Any[]
+#window_size_list = [1,3,5,7,9,11,13,15,17,19,25,31,39,45,51,55,61,67]
+#trn_accuracy_values = Any[]
+#tst_accuracy_values = Any[]
 
 executeData(fileprefix,1,batchsize)
 w = initialize_weight_CNN()
